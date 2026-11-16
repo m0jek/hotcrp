@@ -60,15 +60,25 @@ fi
 
 ## Outgoing mail (msmtp provides /usr/sbin/sendmail)
 if [ -n "${SMTP_HOST:-}" ]; then
+    smtp_port="${SMTP_PORT:-587}"
+    smtp_tls="${SMTP_TLS:-on}"
+    # Port 465 is implicit TLS (SMTPS): the server expects a TLS handshake
+    # immediately, so STARTTLS must be off or the connection hangs until it
+    # times out. Port 25 relays often have no TLS at all.
+    case "$smtp_port" in
+    465) smtp_starttls="${SMTP_STARTTLS:-off}";;
+    *) smtp_starttls="${SMTP_STARTTLS:-on}";;
+    esac
+    log "Mail relay: $SMTP_HOST:$smtp_port (tls $smtp_tls, starttls $smtp_starttls)"
     (umask 077 && {
         echo "defaults"
         echo "syslog off"
         echo "timeout 30"
         echo "account default"
         echo "host $SMTP_HOST"
-        echo "port ${SMTP_PORT:-587}"
-        echo "tls ${SMTP_TLS:-on}"
-        echo "tls_starttls ${SMTP_STARTTLS:-on}"
+        echo "port $smtp_port"
+        echo "tls $smtp_tls"
+        echo "tls_starttls $smtp_starttls"
         echo "allow_from_override on"
         if [ -n "${HOTCRP_EMAIL_SENDER:-${HOTCRP_EMAIL_FROM:-${HOTCRP_CONTACT_EMAIL:-}}}" ]; then
             echo "from ${HOTCRP_EMAIL_SENDER:-${HOTCRP_EMAIL_FROM:-$HOTCRP_CONTACT_EMAIL}}"
