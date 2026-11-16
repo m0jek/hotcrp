@@ -1,0 +1,15 @@
+.git
+.github
+.phan
+conf
+docs
+filestore
+logs
+node_modules
+vendor
+var
+test/var
+test/localoptions.php
+devel/d3/node_modules
+**/*~
+**/.DS_Store

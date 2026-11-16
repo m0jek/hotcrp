@@ -1,0 +1,26 @@
+# All-in-one HotCRP. Run from the repository root:
+#     docker compose -f docker/compose.yaml up -d --build
+services:
+  hotcrp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: hotcrp
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - hotcrp-data:/data
+    environment:
+      HOTCRP_SHORT_NAME: "TestConf 2026"
+      HOTCRP_LONG_NAME: "Test Conference 2026"
+      # HOTCRP_PAPER_SITE: "https://hotcrp.example.org/"
+      # HOTCRP_CONTACT_NAME: "Your Name"
+      # HOTCRP_CONTACT_EMAIL: "you@example.org"
+      # HOTCRP_ADMIN_EMAIL: "you@example.org"
+      # SMTP_HOST: "smtp.example.org"
+      # SMTP_USER: "hotcrp"
+      # SMTP_PASSWORD: "..."
+
+volumes:
+  hotcrp-data:
