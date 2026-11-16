@@ -39,6 +39,7 @@ Configuration
 | `HOTCRP_EMAIL_FROM`, `HOTCRP_EMAIL_SENDER` | `From:` header and envelope sender for outgoing mail |
 | `HOTCRP_ADMIN_EMAIL`, `HOTCRP_ADMIN_PASSWORD` | Initial system administrator. Only used if the account does not exist yet. |
 | `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TLS` (on), `SMTP_STARTTLS` (on) | SMTP relay for outgoing mail |
+| `PHP_FPM_MAX_CHILDREN` | Maximum number of PHP worker processes (default 32). Each can use up to ~128 MB under load; raise it if the log says `server reached pm.max_children`. |
 | `TZ` | Timezone, e.g. `Europe/London` |
 
 **Email.** The container has no mail server of its own; mail is relayed

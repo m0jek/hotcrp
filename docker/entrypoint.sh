@@ -63,6 +63,7 @@ if [ -n "${SMTP_HOST:-}" ]; then
     (umask 077 && {
         echo "defaults"
         echo "syslog off"
+        echo "timeout 30"
         echo "account default"
         echo "host $SMTP_HOST"
         echo "port ${SMTP_PORT:-587}"
@@ -106,6 +107,7 @@ if [ $# -gt 0 ]; then
 fi
 
 ## Web server
+export PHP_FPM_MAX_CHILDREN="${PHP_FPM_MAX_CHILDREN:-32}"
 php-fpm -F &
 fpm_pid=$!
 nginx -g 'daemon off;' &
