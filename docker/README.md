@@ -65,6 +65,83 @@ header through, and set `HOTCRP_PAPER_SITE`.
 **Upload size.** The limit is 64 MB per file (`docker/php.ini`,
 `docker/nginx.conf`, and `max_allowed_packet` in `docker/mariadb.cnf`).
 
+Single sign-on with Authentik
+-----------------------------
+
+HotCRP can sign users in through an OpenID Connect provider such as
+[Authentik](https://goauthentik.io/). By default this adds a sign-in button
+next to normal password sign-in, so people outside your organization (authors,
+external reviewers) can still use HotCRP accounts. See
+`devel/manual/oauth.md` for every option.
+
+**In Authentik**, create an *OAuth2/OpenID Provider* and an *Application* that
+uses it:
+
+* Client type: confidential. Note the client ID and secret.
+* Redirect URI: `https://hotcrp.example.org/oauth` (your `HOTCRP_PAPER_SITE`
+  plus `oauth`)
+* Scopes: the defaults, `openid`, `email`, and `profile`
+
+**In the container**, create `/data/conf/authentik.php`. Replace the
+hostnames, the application slug (`hotcrp` below), and the credentials:
+
+```php
+<?php
+$Opt["oAuthProviders"][] = '{
+    "name": "Authentik",
+    "issuer": "https://auth.example.org/application/o/hotcrp/",
+    "auth_uri": "https://auth.example.org/application/o/authorize/",
+    "token_uri": "https://auth.example.org/application/o/token/",
+    "client_id": "CLIENT_ID",
+    "client_secret": "CLIENT_SECRET",
+    "button_html": "Sign in with Authentik"
+}';
+```
+
+For example, write it locally as `authentik.php`, then copy it in and make it
+readable only by the web server:
+
+```sh
+docker exec -i hotcrp sh -c 'cat > /data/conf/authentik.php && chown root:www-data /data/conf/authentik.php && chmod 640 /data/conf/authentik.php' < authentik.php
+```
+
+Configuration files are read on every request, so no restart is needed. The
+three URLs can be confirmed at
+`https://auth.example.org/application/o/hotcrp/.well-known/openid-configuration`.
+
+Things to check:
+
+* `HOTCRP_PAPER_SITE` must be the public `https://` address. HotCRP derives
+  the redirect URI from it, and it must exactly match the one registered in
+  Authentik.
+* The container must reach Authentik over HTTPS; HotCRP refuses a
+  `token_uri` that is not `https://`.
+* HotCRP requires the ID token's `email_verified` claim to be `true`. If
+  sign-in fails with an email verification error, add an Authentik scope
+  mapping that returns `email_verified: true` (appropriate when your directory
+  manages addresses), or add `"allow_unverified_email": true` to the provider.
+* With `HOTCRP_DISABLE_NEW_USERS=true`, a first-time Authentik sign-in is
+  refused unless an account with that email already exists. To let anyone in
+  Authentik sign in while preventing other signups, leave
+  `HOTCRP_DISABLE_NEW_USERS` unset and add `$Opt["loginType"] = "oauth";` to
+  `authentik.php`. That makes Authentik the *only* way to sign in, including
+  for administrators.
+
+**Roles from Authentik groups (optional).** HotCRP can grant roles from the
+token's `groups` claim. Add a `group_roles` object to the provider JSON; for
+example:
+
+```json
+"group_roles": {
+    "hotcrp-admins": "+sysadmin",
+    "hotcrp-chairs": "+chair",
+    "hotcrp-pc": "pc"
+}
+```
+
+Roles are added at each sign-in but not removed unless you also set
+`reset_roles` (see `devel/manual/oauth.md`).
+
 Data and maintenance
 --------------------
 
