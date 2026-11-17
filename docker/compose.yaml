@@ -18,6 +18,7 @@ services:
       # HOTCRP_CONTACT_NAME: "Your Name"
       # HOTCRP_CONTACT_EMAIL: "you@example.org"
       # HOTCRP_ADMIN_EMAIL: "you@example.org"
+      # HOTCRP_DISABLE_NEW_USERS: "true"
       # SMTP_HOST: "smtp.example.org"
       # SMTP_USER: "hotcrp"
       # SMTP_PASSWORD: "..."

@@ -31,6 +31,11 @@ $Opt["dbHost"] = "localhost";
             $Opt[$o] = $v;
         }
     }
+    foreach (["HOTCRP_DISABLE_NEW_USERS" => "disableNewUsers"] as $e => $o) {
+        if (($v = $env($e)) !== null) {
+            $Opt[$o] = filter_var($v, FILTER_VALIDATE_BOOLEAN);
+        }
+    }
     if (!isset($Opt["emailFrom"]) && isset($Opt["contactEmail"])) {
         $Opt["emailFrom"] = $Opt["contactEmail"];
     }

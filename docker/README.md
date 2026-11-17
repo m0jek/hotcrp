@@ -38,6 +38,7 @@ Configuration
 | `HOTCRP_CONTACT_NAME`, `HOTCRP_CONTACT_EMAIL` | Site contact |
 | `HOTCRP_EMAIL_FROM`, `HOTCRP_EMAIL_SENDER` | `From:` header and envelope sender for outgoing mail |
 | `HOTCRP_ADMIN_EMAIL`, `HOTCRP_ADMIN_PASSWORD` | Initial system administrator. Only used if the account does not exist yet. |
+| `HOTCRP_DISABLE_NEW_USERS` | Set to `true` to stop people creating their own accounts. Administrators can still add users (Users page, or `batch/saveusers.php`). |
 | `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TLS` (on), `SMTP_STARTTLS` (on; off for port 465) | SMTP relay for outgoing mail. Use port 587 (STARTTLS) or 465 (implicit TLS); for an unencrypted relay on port 25 set `SMTP_TLS=off`. |
 | `PHP_FPM_MAX_CHILDREN` | Maximum number of PHP worker processes (default 32). Each can use up to ~128 MB under load; raise it if the log says `server reached pm.max_children`. |
 | `TZ` | Timezone, e.g. `Europe/London` |
