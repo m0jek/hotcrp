@@ -116,10 +116,16 @@ Things to check:
   Authentik.
 * The container must reach Authentik over HTTPS; HotCRP refuses a
   `token_uri` that is not `https://`.
-* HotCRP requires the ID token's `email_verified` claim to be `true`. If
-  sign-in fails with an email verification error, add an Authentik scope
-  mapping that returns `email_verified: true` (appropriate when your directory
-  manages addresses), or add `"allow_unverified_email": true` to the provider.
+* HotCRP requires the ID token's `email_verified` claim to be `true`, and
+  Authentik's default email mapping does not send that, so sign-in fails with
+  "The Authentik authenticator hasn’t verified your email". Add
+  `"allow_unverified_email": true,` to the provider JSON in `authentik.php`.
+  This makes HotCRP trust the email Authentik reports, so first make sure
+  users cannot change their own email address in Authentik (System →
+  Settings); otherwise a user could set a PC chair's address and sign in as
+  them. (A custom Authentik scope mapping that returns `email_verified: true`
+  is an alternative, but it must replace the provider's default `email`
+  mapping, and in at least one deployment it did not take effect.)
 * With `HOTCRP_DISABLE_NEW_USERS=true`, a first-time Authentik sign-in is
   refused unless an account with that email already exists. To let anyone in
   Authentik sign in while preventing other signups, leave
