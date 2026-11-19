@@ -19,6 +19,9 @@ services:
       # HOTCRP_CONTACT_EMAIL: "you@example.org"
       # HOTCRP_ADMIN_EMAIL: "you@example.org"
       # HOTCRP_DISABLE_NEW_USERS: "true"
+      # Serve several conferences at /CONFID/ (see docker/README.md)
+      # HOTCRP_MULTICONFERENCE: "true"
+      # HOTCRP_DEFAULT_CONFERENCE: "hotcrp"
       # SMTP_HOST: "smtp.example.org"
       # SMTP_USER: "hotcrp"
       # SMTP_PASSWORD: "..."

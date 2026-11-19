@@ -3,12 +3,14 @@
 // all-in-one Docker image. Reads HOTCRP_ADMIN_EMAIL and (optionally)
 // HOTCRP_ADMIN_PASSWORD from the environment. Does nothing if the account
 // already exists, so later changes to those variables are ignored.
+// Usage: php bootstrap-admin.php [CONFID]   (CONFID in multiconference mode)
 
 require_once("/srv/hotcrp/src/init.php");
 
 $email = trim((string) getenv("HOTCRP_ADMIN_EMAIL"));
 $password = (string) getenv("HOTCRP_ADMIN_PASSWORD");
-$conf = initialize_conf();
+$confid = $argv[1] ?? null;
+$conf = initialize_conf(null, $confid);
 
 if (!validate_email($email)) {
     fwrite(STDERR, "HOTCRP_ADMIN_EMAIL is not a valid email address\n");
@@ -32,4 +34,5 @@ if ($password !== "") {
     $user->change_password($password);
 }
 fwrite(STDERR, "[hotcrp] Created administrator account {$email}"
+    . ($confid !== null ? " in conference {$confid}" : "")
     . ($password !== "" ? "" : " (no password set)") . "\n");

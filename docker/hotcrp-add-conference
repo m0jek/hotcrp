@@ -1,0 +1,56 @@
+#!/bin/bash
+# hotcrp-add-conference -- add a conference to a multiconference container.
+# Run inside the running container:
+#     docker exec hotcrp hotcrp-add-conference ws2027 --name "WS 2027"
+set -euo pipefail
+. /usr/local/lib/hotcrp/functions.sh
+
+usage () {
+    cat <<__EOF__
+Usage: hotcrp-add-conference CONFID [--name SHORTNAME] [--long-name LONGNAME]
+
+Create conference CONFID, served at /CONFID/, with its own database.
+CONFID may contain lowercase letters, digits, '-' and '_'.
+If HOTCRP_ADMIN_EMAIL is set, that account becomes the conference's
+administrator.
+__EOF__
+    exit "${1:-1}"
+}
+
+id= name= longname=
+while [ $# -gt 0 ]; do
+    case "$1" in
+    --name) [ $# -ge 2 ] || usage; name="$2"; shift;;
+    --name=*) name="${1#*=}";;
+    --long-name) [ $# -ge 2 ] || usage; longname="$2"; shift;;
+    --long-name=*) longname="${1#*=}";;
+    -h|--help) usage 0;;
+    -*) usage;;
+    *) [ -z "$id" ] || usage; id="$1";;
+    esac
+    shift
+done
+[ -n "$id" ] || usage
+
+if ! is_multiconference; then
+    echo "hotcrp-add-conference: HOTCRP_MULTICONFERENCE is not enabled" >&2
+    exit 1
+elif ! valid_confid "$id"; then
+    echo "hotcrp-add-conference: invalid conference ID '$id'" >&2
+    echo "Use lowercase letters, digits, '-' and '_' (and not a reserved name)." >&2
+    exit 1
+elif [ -e "$CONFDIR/$id.php" ]; then
+    echo "hotcrp-add-conference: conference '$id' already exists" >&2
+    exit 1
+elif ! mariadb-admin ping --silent >/dev/null 2>&1; then
+    echo "hotcrp-add-conference: MariaDB is not running; run this with" >&2
+    echo "'docker exec' in the running container" >&2
+    exit 1
+fi
+
+ensure_database "$id"
+write_conference_file "$id" "$name" "$longname"
+bootstrap_admin "$id"
+
+site="${HOTCRP_PAPER_SITE:-}"
+echo "Created conference '$id': ${site%/}/$id/"

@@ -3,13 +3,7 @@
 # first start, then runs MariaDB, php-fpm, and Nginx until one of them exits
 # or the container is stopped.
 set -euo pipefail
-
-DATA=/data
-DBNAME=hotcrp
-DBUSER=hotcrp
-PWFILE=$DATA/secrets/dbpassword
-
-log () { echo "[hotcrp] $*" >&2; }
+. /usr/local/lib/hotcrp/functions.sh
 
 mkdir -p "$DATA/mysql" "$DATA/conf" "$DATA/sessions" "$DATA/secrets" /run/mysqld /run/php
 chown mysql:mysql "$DATA/mysql" /run/mysqld
@@ -37,25 +31,41 @@ for i in $(seq 1 60); do
 done
 mariadb-admin ping --silent >/dev/null || { log "MariaDB did not become ready"; exit 1; }
 
-## HotCRP database, user, and schema
-if [ ! -s "$PWFILE" ]; then
-    (umask 077 && head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > "$PWFILE")
-fi
-chown root:www-data "$PWFILE"
-chmod 640 "$PWFILE"
-
-mariadb <<__EOF__
-CREATE DATABASE IF NOT EXISTS \`$DBNAME\` DEFAULT CHARACTER SET utf8mb4;
-CREATE OR REPLACE USER '$DBUSER'@'localhost' IDENTIFIED BY '$(cat "$PWFILE")';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, INDEX,
-    REFERENCES, ALTER, LOCK TABLES, CREATE TEMPORARY TABLES
-    ON \`$DBNAME\`.* TO '$DBUSER'@'localhost';
-GRANT RELOAD ON *.* TO '$DBUSER'@'localhost';
-__EOF__
-
-if [ -z "$(mariadb -N -e "SHOW TABLES LIKE 'Settings'" "$DBNAME")" ]; then
-    log "Creating HotCRP database schema..."
-    mariadb "$DBNAME" < /srv/hotcrp/src/schema.sql
+## HotCRP databases, user, and schema
+ensure_db_user
+conferences=()
+if is_multiconference; then
+    mkdir -p "$CONFDIR"
+    chown root:www-data "$CONFDIR"
+    chmod 750 "$CONFDIR"
+    # On switching from single-conference mode, keep the existing conference
+    # as conference "hotcrp" (its database name)
+    if ! compgen -G "$CONFDIR/*.php" >/dev/null \
+       && [ -n "$(mariadb -N -e "SHOW TABLES FROM \`hotcrp\` LIKE 'Settings'" 2>/dev/null)" ]; then
+        write_conference_file hotcrp "${HOTCRP_SHORT_NAME:-}" "${HOTCRP_LONG_NAME:-}"
+        log "Registered the existing conference as \"hotcrp\", now served at /hotcrp/"
+        log "Set HOTCRP_DEFAULT_CONFERENCE=hotcrp to keep its old URLs working"
+    fi
+    for f in "$CONFDIR"/*.php; do
+        [ -e "$f" ] || continue
+        id="$(basename "$f" .php)"
+        if ! valid_confid "$id"; then
+            log "Ignoring $f: invalid conference ID"
+            continue
+        fi
+        ensure_database "$id"
+        conferences+=("$id")
+    done
+    if [ ${#conferences[@]} -eq 0 ]; then
+        log "Multiconference mode: no conferences yet; add one with"
+        log "  docker exec <container> hotcrp-add-conference CONFID --name \"Short name\""
+    else
+        log "Multiconference mode: conferences ${conferences[*]}"
+    fi
+    ln -sf /etc/nginx/hotcrp/multi.conf /etc/nginx/sites-enabled/hotcrp.conf
+else
+    ensure_database hotcrp
+    ln -sf /etc/nginx/hotcrp/single.conf /etc/nginx/sites-enabled/hotcrp.conf
 fi
 
 ## Outgoing mail (msmtp provides /usr/sbin/sendmail)
@@ -100,8 +110,13 @@ fi
 
 ## Optional initial administrator (created once; see bootstrap-admin.php)
 if [ -n "${HOTCRP_ADMIN_EMAIL:-}" ]; then
-    php /usr/local/lib/hotcrp/bootstrap-admin.php \
-        || log "Could not create administrator $HOTCRP_ADMIN_EMAIL"
+    if is_multiconference; then
+        for id in "${conferences[@]}"; do
+            bootstrap_admin "$id"
+        done
+    else
+        bootstrap_admin
+    fi
 elif [ -z "${SMTP_HOST:-}" ]; then
     log "Neither SMTP_HOST nor HOTCRP_ADMIN_EMAIL is set: nobody can sign in."
     log "Set HOTCRP_ADMIN_EMAIL and HOTCRP_ADMIN_PASSWORD to create an administrator."

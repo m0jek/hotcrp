@@ -40,6 +40,8 @@ Configuration
 | `HOTCRP_ADMIN_EMAIL`, `HOTCRP_ADMIN_PASSWORD` | Initial system administrator. Only used if the account does not exist yet. |
 | `HOTCRP_DISABLE_NEW_USERS` | Set to `true` to stop people creating their own accounts. Administrators can still add users (Users page, or `batch/saveusers.php`). |
 | `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_TLS` (on), `SMTP_STARTTLS` (on; off for port 465) | SMTP relay for outgoing mail. Use port 587 (STARTTLS) or 465 (implicit TLS); for an unencrypted relay on port 25 set `SMTP_TLS=off`. |
+| `HOTCRP_MULTICONFERENCE` | Set to `true` to serve several conferences, each at `/CONFID/`. See [Several conferences](#several-conferences). |
+| `HOTCRP_DEFAULT_CONFERENCE` | In multiconference mode, the conference that `/` and unrecognized URLs redirect to. |
 | `PHP_FPM_MAX_CHILDREN` | Maximum number of PHP worker processes (default 32). Each can use up to ~128 MB under load; raise it if the log says `server reached pm.max_children`. |
 | `TZ` | Timezone, e.g. `Europe/London` |
 
@@ -148,18 +150,76 @@ example:
 Roles are added at each sign-in but not removed unless you also set
 `reset_roles` (see `devel/manual/oauth.md`).
 
+Several conferences
+-------------------
+
+Set `HOTCRP_MULTICONFERENCE=true` to serve several conferences from one
+container. Each conference is served under its own path, such as
+`https://hotcrp.example.org/ws2027/`, and has its own database, so its own
+settings, submissions, reviews, and user accounts. Being an administrator of
+one conference gives no access to another.
+
+**Adding a conference.** Run, in the running container:
+
+```sh
+docker exec hotcrp hotcrp-add-conference ws2027 --name "WS 2027" --long-name "CHERI Workshop 2027"
+```
+
+The conference ID (`ws2027`) becomes the URL path and the database name. It
+may contain lowercase letters, digits, `-`, and `_`. If
+`HOTCRP_ADMIN_EMAIL` (and `HOTCRP_ADMIN_PASSWORD`) are set, that account
+becomes the new conference's administrator. Names can be changed later on the
+conference's Settings page.
+
+**The site root.** `/` lists the conferences. Set
+`HOTCRP_DEFAULT_CONFERENCE=ws2027` to redirect `/` to that conference
+instead; any URL that does not start with a conference ID (for example
+`/paper/12`) is then redirected into it too.
+
+**Switching an existing installation.** When multiconference mode is turned
+on for a data volume that already holds a conference, that conference is kept
+as conference `hotcrp` (its database name) and moves to `/hotcrp/`. Set
+`HOTCRP_DEFAULT_CONFERENCE=hotcrp` so links in email that has already been
+sent keep working.
+
+**Configuration.** In multiconference mode:
+
+* `HOTCRP_SHORT_NAME` and `HOTCRP_LONG_NAME` are ignored; each conference
+  has its own names. (When an existing conference is switched over, they are
+  copied into its options file.)
+* `HOTCRP_PAPER_SITE` is the site root, e.g. `https://hotcrp.example.org/`;
+  each conference's own URL is that plus its ID.
+* The other variables, and files in `/data/conf/`, apply to every
+  conference. Options for one conference go in
+  `/data/conferences/CONFID.php`, which `hotcrp-add-conference` creates.
+
+**Authentik.** One `/data/conf/authentik.php` serves every conference, but
+each conference has its own redirect URI, `https://hotcrp.example.org/CONFID/oauth`.
+Add each one to the provider's Redirect URIs in Authentik. When switching an
+existing installation, replace its old `…/oauth` redirect URI with
+`…/hotcrp/oauth`.
+
+**Command-line tools** need the conference: add `-n CONFID`, for example
+`docker exec hotcrp php batch/backupdb.php -n ws2027 > ws2027.sql`.
+
+**Removing a conference.** Delete `/data/conferences/CONFID.php`; the
+conference stops being served, but its database is kept. To delete its data
+permanently, also run
+``docker exec hotcrp mariadb -e 'DROP DATABASE `CONFID`'``.
+
 Data and maintenance
 --------------------
 
-`/data` holds `mysql/` (the database, including uploaded documents),
-`secrets/dbpassword`, `sessions/`, and `conf/`.
+`/data` holds `mysql/` (the databases, including uploaded documents),
+`secrets/dbpassword`, `sessions/`, `conf/`, and, in multiconference mode,
+`conferences/`.
 
 ```sh
 # Back up the database (restore with `php batch/backupdb.php -r BACKUPFILE`
 # inside the container; see the main README)
 docker exec hotcrp php batch/backupdb.php > backup.sql
 
-# Any other batch script
+# Any other batch script (add `-n CONFID` in multiconference mode)
 docker exec hotcrp php batch/saveusers.php -u pc@example.org --roles pc
 
 # SQL prompt
