@@ -207,6 +207,10 @@ its `/data/conferences/CONFID.php`:
 $Opt["conferenceListDate"] = "2027-06-15";
 ```
 
+Files created by `hotcrp-add-conference` already contain this line, commented
+out; remove the leading `//` and change the date. Older conference files
+don't have it, so add the line by hand.
+
 **A link to the conference list.** To show an "All conferences" link in the
 footer of every page, create `/data/conf/footer.php`:
 
