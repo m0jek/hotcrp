@@ -17,32 +17,65 @@ function hotcrp_docker_conferences() {
     return $ids;
 }
 
-/** @param string $id
- * @return array{string,?string} */
-function hotcrp_docker_conference_names($id, ?mysqli $db) {
-    // Names set on the Settings page are stored in the database ...
-    $names = [null, null];
+/** Return a conference's short name, long name, and list date (a Unix
+ * timestamp or null).
+ * @param string $id
+ * @return array{string,?string,?int} */
+function hotcrp_docker_conference_info($id, ?mysqli $db) {
+    // Names set on the Settings page, and the submission deadline, are
+    // stored in the database ...
+    $short = $long = $deadline = null;
     if ($db) {
         try {
-            $result = $db->query("select name, data from `{$id}`.Settings where name in ('opt.shortName', 'opt.longName')");
+            $result = $db->query("select name, value, data from `{$id}`.Settings where name in ('opt.shortName', 'opt.longName', 'sub_sub')");
             while (($row = $result->fetch_row())) {
-                $names[$row[0] === "opt.shortName" ? 0 : 1] = $row[1];
+                if ($row[0] === "opt.shortName") {
+                    $short = $row[2];
+                } else if ($row[0] === "opt.longName") {
+                    $long = $row[2];
+                } else if ((int) $row[1] > 0) {
+                    $deadline = (int) $row[1];
+                }
             }
         } catch (Throwable $e) {
         }
     }
-    // ... and otherwise come from the conference's options file
-    if ($names[0] === null || $names[1] === null) {
-        $read = function ($file) {
-            $Opt = [];
-            @include $file;
-            return $Opt;
-        };
-        $opt = $read("/data/conferences/{$id}.php");
-        $names[0] = $names[0] ?? $opt["shortName"] ?? null;
-        $names[1] = $names[1] ?? $opt["longName"] ?? null;
+    // ... and the conference's options file supplies default names and an
+    // optional `conferenceListDate`, which overrides the deadline
+    $read = function ($file) {
+        $Opt = [];
+        @include $file;
+        return $Opt;
+    };
+    $opt = $read("/data/conferences/{$id}.php");
+    $short = $short ?? $opt["shortName"] ?? $id;
+    $long = $long ?? $opt["longName"] ?? null;
+    $date = $deadline;
+    $ld = $opt["conferenceListDate"] ?? null;
+    if (is_int($ld)) {
+        $date = $ld;
+    } else if (is_string($ld) && ($t = strtotime($ld)) !== false) {
+        $date = $t;
     }
-    return [$names[0] ?? $id, $names[1]];
+    return [$short, $long, $date];
+}
+
+/** Order conferences newest first: by `conferenceListDate` or submission
+ * deadline, latest first, with conferences that have neither (usually new
+ * ones) at the top.
+ * @param list<array{id:string,short:string,long:?string,date:?int}> $confs
+ * @return list<array{id:string,short:string,long:?string,date:?int}> */
+function hotcrp_docker_sort_conferences($confs) {
+    usort($confs, function ($a, $b) {
+        if ($a["date"] !== $b["date"]) {
+            if ($a["date"] === null || $b["date"] === null) {
+                return $a["date"] === null ? -1 : 1;
+            }
+            return $b["date"] <=> $a["date"];
+        }
+        return strnatcasecmp($a["short"], $b["short"]) ? : strcmp($a["id"], $b["id"]);
+    });
+    return $confs;
 }
 
 /** @return never */
@@ -73,9 +106,14 @@ function hotcrp_docker_print_conference_list() {
     if (empty($ids)) {
         echo "<p>No conferences have been created yet.</p>\n";
     } else {
-        echo "<ul>\n";
+        $confs = [];
         foreach ($ids as $id) {
-            [$short, $long] = hotcrp_docker_conference_names($id, $db);
+            [$short, $long, $date] = hotcrp_docker_conference_info($id, $db);
+            $confs[] = ["id" => $id, "short" => $short, "long" => $long, "date" => $date];
+        }
+        echo "<ul>\n";
+        foreach (hotcrp_docker_sort_conferences($confs) as $c) {
+            [$id, $short, $long] = [$c["id"], $c["short"], $c["long"]];
             echo "<li><a href=\"/", rawurlencode($id), "/\">", $h($short), "</a>";
             if ($long !== null && $long !== "" && $long !== $short) {
                 echo "<span class=\"long\">", $h($long), "</span>";

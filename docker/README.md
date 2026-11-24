@@ -197,6 +197,16 @@ conference's Settings page.
 instead; any URL that does not start with a conference ID (for example
 `/paper/12`) is then redirected into it too.
 
+**Order of the list.** The newest conference comes first, judged by each
+conference's submission deadline (set on its Settings page). Conferences with
+no deadline yet, usually new ones, appear at the top. To place a conference
+by another date, such as when it takes place, set `conferenceListDate` in
+its `/data/conferences/CONFID.php`:
+
+```php
+$Opt["conferenceListDate"] = "2027-06-15";
+```
+
 **A link to the conference list.** To show an "All conferences" link in the
 footer of every page, create `/data/conf/footer.php`:
 
