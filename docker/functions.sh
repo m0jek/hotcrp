@@ -74,7 +74,12 @@ write_conference_file () {
         }
         if (($n = getenv("HC_LONG")) !== "") {
             echo "\$Opt[\"longName\"] = ", var_export($n, true), ";\n";
-        }' > "$CONFDIR/$id.php"
+        }
+        echo "\n",
+            "// The conference list at / shows the newest conference first, judged by\n",
+            "// each conference’s submission deadline. To place this conference by\n",
+            "// another date instead, such as when it takes place, uncomment this:\n",
+            "// \$Opt[\"conferenceListDate\"] = \"2027-06-15\";\n";' > "$CONFDIR/$id.php"
     chown root:www-data "$CONFDIR/$id.php"
     chmod 640 "$CONFDIR/$id.php"
 }
