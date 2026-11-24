@@ -176,6 +176,20 @@ conference's Settings page.
 instead; any URL that does not start with a conference ID (for example
 `/paper/12`) is then redirected into it too.
 
+**A link to the conference list.** To show an "All conferences" link in the
+footer of every page, create `/data/conf/footer.php`:
+
+```php
+<?php
+$Opt["extraFooter"] = '<a href="/">All conferences</a>'
+    . ' <span class="barsep">|</span> ';
+```
+
+The value is HTML. Keep the trailing separator, which comes before HotCRP's
+own footer link, and write any `'` in the text as `\'`. This link only reaches
+the list when `HOTCRP_DEFAULT_CONFERENCE` is unset; otherwise `/` redirects to
+the default conference.
+
 **Switching an existing installation.** When multiconference mode is turned
 on for a data volume that already holds a conference, that conference is kept
 as conference `hotcrp` (its database name) and moves to `/hotcrp/`. Set
