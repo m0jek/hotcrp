@@ -67,6 +67,27 @@ header through, and set `HOTCRP_PAPER_SITE`.
 **Upload size.** The limit is 64 MB per file (`docker/php.ini`,
 `docker/nginx.conf`, and `max_allowed_packet` in `docker/mariadb.cnf`).
 
+**Custom stylesheets.** Keep your CSS files in a folder on the host and mount
+it at `/srv/hotcrp/stylesheets/local`: add
+`-v /path/to/hotcrp-css:/srv/hotcrp/stylesheets/local:ro` to `docker run`, or
+the same mapping under `volumes:` in Compose. Then list each file in
+`/data/conf/style.php`:
+
+```php
+<?php
+$Opt["stylesheets"][] = "stylesheets/local/custom.css";
+```
+
+These load after HotCRP's own `style.css`, so their rules take precedence, and
+edits show on the next page load. Do not copy files into
+`/srv/hotcrp/stylesheets` inside the container; that is part of the image, so
+they would be lost when the container is recreated. For example, to make the
+footer, shown in small text at the bottom right of each page, larger:
+
+```css
+#p-footer { font-size: 1rem; }
+```
+
 Single sign-on with Authentik
 -----------------------------
 
@@ -185,8 +206,10 @@ $Opt["extraFooter"] = '<a href="/">All conferences</a>'
     . ' <span class="barsep">|</span> ';
 ```
 
-The value is HTML. Keep the trailing separator, which comes before HotCRP's
-own footer link, and write any `'` in the text as `\'`. This link only reaches
+The footer is shown in small text at the bottom right of each conference
+page (not on the conference list itself); see
+[Custom stylesheets](#configuration) to make it larger. The value is HTML.
+Keep the trailing separator, which comes before HotCRP's own footer link, and write any `'` in the text as `\'`. This link only reaches
 the list when `HOTCRP_DEFAULT_CONFERENCE` is unset; otherwise `/` redirects to
 the default conference.
 
