@@ -105,6 +105,19 @@ uses it:
   plus `oauth`)
 * Scopes: the defaults, `openid`, `email`, and `profile`
 
+To add or change redirect URIs later:
+
+1. In the Authentik **Admin interface**, open **Applications → Providers**,
+   click the provider used by the HotCRP application, and click **Edit**.
+2. Under **Redirect URIs/Origins** (possibly within **Protocol settings**),
+   click **Add entry**, set **Matching mode** to **Strict**, and enter the
+   URI. Older Authentik versions have a text box instead: one URI per line.
+3. Click **Update**. The change takes effect immediately.
+
+The URI must match exactly: `https`, the same hostname, and no trailing slash
+after `oauth`. Otherwise Authentik shows "Redirect URI Error" when the HotCRP
+sign-in button is clicked.
+
 **In the container**, create `/data/conf/authentik.php`. Replace the
 hostnames, the application slug (`hotcrp` below), and the credentials:
 
@@ -352,9 +365,24 @@ sent keep working.
 
 **Authentik.** One `/data/conf/authentik.php` serves every conference, but
 each conference has its own redirect URI, `https://hotcrp.example.org/CONFID/oauth`.
-Add each one to the provider's Redirect URIs in Authentik. When switching an
-existing installation, replace its old `…/oauth` redirect URI with
-`…/hotcrp/oauth`.
+Add each one to the provider's Redirect URIs in Authentik, as described in
+[Single sign-on with Authentik](#single-sign-on-with-authentik), for example:
+
+| Matching mode | URI |
+|---|---|
+| Strict | `https://hotcrp.example.org/hotcrp/oauth` |
+| Strict | `https://hotcrp.example.org/cb2027/oauth` |
+
+Or add a single entry that covers every conference, including ones added
+later, with **Matching mode** set to **Regex**:
+
+```
+https://hotcrp\.example\.org/[a-z0-9_-]+/oauth
+```
+
+Keep the `\.` escapes, since an unescaped `.` matches any character. When
+switching an existing installation, the old `https://hotcrp.example.org/oauth`
+entry is no longer used and can be removed.
 
 **Command-line tools** need the conference: add `-n CONFID`, for example
 `docker exec hotcrp php batch/backupdb.php -n ws2027 > ws2027.sql`.
