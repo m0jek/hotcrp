@@ -192,6 +192,35 @@ may contain lowercase letters, digits, `-`, and `_`. If
 becomes the new conference's administrator. Names can be changed later on the
 conference's Settings page.
 
+**Copying a conference.** To start a new conference from an existing one,
+for example next year's edition, run:
+
+```sh
+docker exec hotcrp hotcrp-copy-conference ws2026 ws2027 --name "WS 2027" --long-name "CHERI Workshop 2027"
+```
+
+The new conference gets a complete copy of the old one's database
+(submissions, uploaded documents, reviews, comments, tags, user accounts and
+passwords, and settings) and of its `/data/conferences/CONFID.php`. The old
+conference is not changed. Without `--name` and `--long-name` the copy keeps
+the old names. Afterwards, update the copy's deadlines on its Settings page,
+check its `/data/conferences/CONFID.php` (for example `conferenceListDate`),
+and, with Authentik, add its redirect URI (see below).
+
+To copy only the settings (submission form, review form, and so on) and not
+the submissions, reviews, or users, create an empty conference and copy the
+settings into it:
+
+```sh
+docker exec hotcrp hotcrp-add-conference ws2027 --name "WS 2027"
+docker exec hotcrp sh -c 'php batch/settings.php -n ws2026 > /tmp/settings.json'
+docker exec hotcrp php batch/settings.php -n ws2027 save /tmp/settings.json
+```
+
+The exported settings include the old conference's names and deadlines; edit
+`/tmp/settings.json` before saving it, or change them afterwards on the new
+conference's Settings page.
+
 **The site root.** `/` lists the conferences. Set
 `HOTCRP_DEFAULT_CONFERENCE=ws2027` to redirect `/` to that conference
 instead; any URL that does not start with a conference ID (for example

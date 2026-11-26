@@ -38,10 +38,11 @@ RUN set -e; \
 COPY . /srv/hotcrp
 COPY docker/options.php /srv/hotcrp/conf/options.php
 COPY docker/entrypoint.sh /usr/local/bin/hotcrp-entrypoint
-COPY docker/hotcrp-add-conference /usr/local/bin/hotcrp-add-conference
+COPY docker/hotcrp-add-conference docker/hotcrp-copy-conference /usr/local/bin/
 COPY docker/functions.sh docker/bootstrap-admin.php docker/multiconference.php \
     /usr/local/lib/hotcrp/
 RUN chmod 755 /usr/local/bin/hotcrp-entrypoint /usr/local/bin/hotcrp-add-conference \
+        /usr/local/bin/hotcrp-copy-conference \
     && chmod 644 /srv/hotcrp/conf/options.php
 
 WORKDIR /srv/hotcrp

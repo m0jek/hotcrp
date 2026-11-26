@@ -1,0 +1,84 @@
+#!/bin/bash
+# hotcrp-copy-conference -- copy a conference, with all its data, to a new
+# conference in a multiconference container. Run inside the running container:
+#     docker exec hotcrp hotcrp-copy-conference ws2026 ws2027 --name "WS 2027"
+set -euo pipefail
+. /usr/local/lib/hotcrp/functions.sh
+
+usage () {
+    cat <<__EOF__
+Usage: hotcrp-copy-conference SOURCE DEST [--name SHORTNAME] [--long-name LONGNAME]
+
+Create conference DEST, served at /DEST/, as a copy of conference SOURCE:
+submissions, documents, reviews, comments, tags, user accounts, and settings.
+SOURCE is not changed. --name and --long-name set the copy's names;
+otherwise it keeps SOURCE's names.
+__EOF__
+    exit "${1:-1}"
+}
+
+src= dst= name= longname=
+while [ $# -gt 0 ]; do
+    case "$1" in
+    --name) [ $# -ge 2 ] || usage; name="$2"; shift;;
+    --name=*) name="${1#*=}";;
+    --long-name) [ $# -ge 2 ] || usage; longname="$2"; shift;;
+    --long-name=*) longname="${1#*=}";;
+    -h|--help) usage 0;;
+    -*) usage;;
+    *) if [ -z "$src" ]; then src="$1"; elif [ -z "$dst" ]; then dst="$1"; else usage; fi;;
+    esac
+    shift
+done
+[ -n "$src" ] && [ -n "$dst" ] || usage
+
+die () { echo "hotcrp-copy-conference: $*" >&2; exit 1; }
+db_exists () {
+    [ -n "$(mariadb -N -e "SHOW DATABASES LIKE '${1//_/\\_}'")" ]
+}
+
+is_multiconference || die "HOTCRP_MULTICONFERENCE is not enabled"
+valid_confid "$dst" || die "invalid conference ID '$dst' (use lowercase letters, digits, '-' and '_', and not a reserved name)"
+[ -f "$CONFDIR/$src.php" ] || die "conference '$src' does not exist"
+[ ! -e "$CONFDIR/$dst.php" ] || die "conference '$dst' already exists"
+mariadb-admin ping --silent >/dev/null 2>&1 \
+    || die "MariaDB is not running; run this with 'docker exec' in the running container"
+db_exists "$src" || die "conference '$src' has no database"
+! db_exists "$dst" || die "database '$dst' already exists; drop it first if it is unused"
+
+log "Copying database $src to $dst..."
+mariadb -e "CREATE DATABASE \`$dst\` DEFAULT CHARACTER SET utf8mb4"
+if ! mariadb-dump --single-transaction --skip-lock-tables "$src" | mariadb "$dst"; then
+    mariadb -e "DROP DATABASE \`$dst\`" || true
+    die "copy failed; database '$dst' removed"
+fi
+ensure_database "$dst"
+
+# Names given on the command line replace any set on SOURCE's Settings page
+dbnames=
+if [ -n "$name" ]; then dbnames="'opt.shortName'"; fi
+if [ -n "$longname" ]; then dbnames="${dbnames:+$dbnames, }'opt.longName'"; fi
+if [ -n "$dbnames" ]; then
+    mariadb "$dst" -e "DELETE FROM Settings WHERE name IN ($dbnames)"
+fi
+
+# Writing the options file last makes the conference appear only once its
+# database is complete
+tmp="$CONFDIR/.$dst.php.tmp"
+cp -p "$CONFDIR/$src.php" "$tmp"
+if [ -n "$name" ] || [ -n "$longname" ]; then
+    HC_SRC="$src" HC_NAME="$name" HC_LONG="$longname" php -r '
+        echo "\n// Set by hotcrp-copy-conference (copied from \"", getenv("HC_SRC"), "\")\n";
+        if (($n = getenv("HC_NAME")) !== "") {
+            echo "\$Opt[\"shortName\"] = ", var_export($n, true), ";\n";
+        }
+        if (($n = getenv("HC_LONG")) !== "") {
+            echo "\$Opt[\"longName\"] = ", var_export($n, true), ";\n";
+        }' >> "$tmp"
+fi
+mv "$tmp" "$CONFDIR/$dst.php"
+
+site="${HOTCRP_PAPER_SITE:-}"
+echo "Copied conference '$src' to '$dst': ${site%/}/$dst/"
+[ -n "$name" ] || echo "Note: '$dst' has the same names as '$src'; change them on its Settings page."
+echo "Update its deadlines on its Settings page, and check $CONFDIR/$dst.php."
