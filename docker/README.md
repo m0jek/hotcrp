@@ -295,7 +295,10 @@ passwords, and settings) and of its `/data/conferences/CONFID.php`. The old
 conference is not changed. Without `--name` and `--long-name` the copy keeps
 the old names. Afterwards, update the copy's deadlines on its Settings page,
 check its `/data/conferences/CONFID.php` (for example `conferenceListDate`),
-and, with Authentik, add its redirect URI (see below).
+and, with Authentik, add its redirect URI (see below). A single **Regex**
+redirect URI such as `https://hotcrp\.example\.org/[a-z0-9_-]+/oauth` covers
+copies and new conferences automatically, so nothing needs adding in
+Authentik.
 
 To copy only the settings (submission form, review form, and so on) and not
 the submissions, reviews, or users, create an empty conference and copy the
