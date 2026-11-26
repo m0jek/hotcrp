@@ -168,8 +168,40 @@ example:
 }
 ```
 
-Roles are added at each sign-in but not removed unless you also set
-`reset_roles` (see `devel/manual/oauth.md`).
+Create groups with exactly these names in Authentik (Directory → Groups) and
+add users to them; Authentik's default `profile` scope sends each user's
+groups. Roles are applied when the user next signs in with Authentik, not
+when they sign in with a password or are added to a group. Chairs are
+automatically PC members too.
+
+Roles are only ever added, so removing someone from `hotcrp-pc` in Authentik
+does not remove them from the PC. To make HotCRP follow the groups, also set
+`reset_roles`, the roles to clear at each Authentik sign-in before the
+groups' roles are applied:
+
+```json
+"reset_roles": "pc chair",
+"group_roles": {
+    "hotcrp-admins": "+sysadmin",
+    "hotcrp-chairs": "+chair",
+    "hotcrp-pc": "pc"
+}
+```
+
+Each sign-in now gives a user exactly the PC and chair roles their groups
+grant. Roles not listed in `reset_roles` are never cleared: here a sysadmin
+who leaves `hotcrp-admins` keeps the role until it is removed in HotCRP (add
+`sysadmin` to `reset_roles` to change that, but make sure an administrator
+can still sign in). In `group_roles`, `"pc"` and `"+pc"` mean the same.
+Roles assigned by hand in HotCRP are cleared too when the
+user next signs in through Authentik, so with `reset_roles` manage those
+roles in Authentik only. See `devel/manual/oauth.md` for details.
+
+`/data/conf/authentik.php` applies to every conference, so in multiconference
+mode a member of `hotcrp-pc` becomes a PC member of each conference they sign
+in to. For a separate PC per conference, define the provider in each
+`/data/conferences/CONFID.php` instead, with its own group names (such as
+`"cb2027-pc": "pc"`), and remove `/data/conf/authentik.php`.
 
 Several conferences
 -------------------
