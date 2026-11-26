@@ -199,9 +199,54 @@ roles in Authentik only. See `devel/manual/oauth.md` for details.
 
 `/data/conf/authentik.php` applies to every conference, so in multiconference
 mode a member of `hotcrp-pc` becomes a PC member of each conference they sign
-in to. For a separate PC per conference, define the provider in each
-`/data/conferences/CONFID.php` instead, with its own group names (such as
-`"cb2027-pc": "pc"`), and remove `/data/conf/authentik.php`.
+in to.
+
+**A separate PC per conference.** Give each conference its own Authentik
+groups. Keep the shared settings in `/data/conf/authentik.php`, but as a PHP
+array that does not itself add a sign-in button:
+
+```php
+<?php
+// Shared Authentik settings; each conference that uses Authentik adds its own
+// provider, with its own groups, in /data/conferences/CONFID.php
+$Opt["authentik"] = [
+    "name" => "Authentik",
+    "issuer" => "https://auth.example.org/application/o/hotcrp/",
+    "auth_uri" => "https://auth.example.org/application/o/authorize/",
+    "token_uri" => "https://auth.example.org/application/o/token/",
+    "client_id" => "CLIENT_ID",
+    "client_secret" => "CLIENT_SECRET",
+    "button_html" => "Sign in with Authentik",
+    "allow_unverified_email" => true,
+    "reset_roles" => "pc chair"
+];
+```
+
+Then add the provider, with that conference's groups, at the end of each
+conference's file, for example `/data/conferences/cb2027.php`:
+
+```php
+if (isset($Opt["authentik"])) {
+    $Opt["oAuthProviders"][] = json_encode($Opt["authentik"] + [
+        "group_roles" => [
+            "hotcrp-admins" => "sysadmin",
+            "cb2027-chairs" => "chair",
+            "cb2027-pc" => "pc"
+        ]
+    ]);
+}
+```
+
+Create `cb2027-chairs` and `cb2027-pc` in Authentik. Members of `cb2027-pc`
+are PC members of `cb2027` only; `hotcrp-admins` here stays shared, making
+its members administrators of every conference that lists it. A conference
+whose file has no such block shows no Authentik button. One Authentik
+application serves every conference, but add each conference's redirect URI
+(`https://hotcrp.example.org/cb2027/oauth`) to it, as above. The
+`isset` check keeps the conference list at `/` working, since it reads the
+conference files without `/data/conf/`. Conferences copied with
+`hotcrp-copy-conference` keep the old conference's block, so change its group
+names.
 
 Several conferences
 -------------------
